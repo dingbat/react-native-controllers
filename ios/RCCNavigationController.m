@@ -3,6 +3,8 @@
 #import "RCCManager.h"
 #import "RCTEventDispatcher.h"
 #import "RCTConvert.h"
+#import <objc/runtime.h>
+#import "RCCTitleViewHelper.h"
 
 @interface RCCNavigationController()
 {
@@ -39,11 +41,6 @@ NSString const *CALLBACK_ASSOCIATED_ID = @"RCCNavigationController.CALLBACK_ASSO
   RCCViewController *viewController = [[RCCViewController alloc] initWithComponent:component passProps:passProps navigatorStyle:navigatorStyle globalProps:globalProps bridge:bridge];
   if (!viewController) return nil;
   
-  NSString *title = props[@"title"];
-  if (title) viewController.title = title;
-  
-  [self setTitleImageForVC:viewController titleImageData:props[@"titleImage"]];
-  
   NSArray *leftButtons = props[@"leftButtons"];
   if (leftButtons)
   {
@@ -61,8 +58,13 @@ NSString const *CALLBACK_ASSOCIATED_ID = @"RCCNavigationController.CALLBACK_ASSO
   
   self.navigationBar.translucent = NO; // default
   
+  [self processTitleView:viewController
+                   props:props
+                   style:navigatorStyle];
+  
   return self;
 }
+
 
 - (void)performAction:(NSString*)performAction actionParams:(NSDictionary*)actionParams bridge:(RCTBridge *)bridge
 {
@@ -100,10 +102,9 @@ NSString const *CALLBACK_ASSOCIATED_ID = @"RCCNavigationController.CALLBACK_ASSO
     
     RCCViewController *viewController = [[RCCViewController alloc] initWithComponent:component passProps:passProps navigatorStyle:navigatorStyle globalProps:nil bridge:bridge];
     
-    NSString *title = actionParams[@"title"];
-    if (title) viewController.title = title;
-    
-    [self setTitleImageForVC:viewController titleImageData:actionParams[@"titleImage"]];
+    [self processTitleView:viewController
+                     props:actionParams
+                     style:navigatorStyle];
     
     NSString *backButtonTitle = actionParams[@"backButtonTitle"];
     if (backButtonTitle)
@@ -168,11 +169,9 @@ NSString const *CALLBACK_ASSOCIATED_ID = @"RCCNavigationController.CALLBACK_ASSO
     
     RCCViewController *viewController = [[RCCViewController alloc] initWithComponent:component passProps:passProps navigatorStyle:navigatorStyle globalProps:nil bridge:bridge];
     
-    NSString *title = actionParams[@"title"];
-    if (title) viewController.title = title;
-    
-    [self setTitleImageForVC:viewController titleImageData:actionParams[@"titleImage"]];
-    
+    [self processTitleView:viewController
+                     props:actionParams
+                     style:navigatorStyle];
     NSArray *leftButtons = actionParams[@"leftButtons"];
     if (leftButtons)
     {
@@ -203,16 +202,12 @@ NSString const *CALLBACK_ASSOCIATED_ID = @"RCCNavigationController.CALLBACK_ASSO
   }
   
   // setTitle
-  if ([performAction isEqualToString:@"setTitle"])
+  if ([performAction isEqualToString:@"setTitle"] || [performAction isEqualToString:@"setTitleImage"])
   {
-    NSString *title = actionParams[@"title"];
-    if (title) self.topViewController.navigationItem.title = title;
-    return;
-  }
-  
-  if ([performAction isEqualToString:@"setTitleImage"])
-  {
-    [self setTitleImageForVC:self.topViewController titleImageData:actionParams[@"titleImage"]];
+    NSDictionary *navigatorStyle = actionParams[@"style"];
+    [self processTitleView:self.topViewController
+                     props:actionParams
+                     style:navigatorStyle];
     return;
   }
   
@@ -223,12 +218,12 @@ NSString const *CALLBACK_ASSOCIATED_ID = @"RCCNavigationController.CALLBACK_ASSO
     
     NSNumber *setHidden = actionParams[@"hidden"];
     BOOL isHiddenBool = setHidden ? [setHidden boolValue] : NO;
-  
+    
     RCCViewController *topViewController = ((RCCViewController*)self.topViewController);
     topViewController.navigatorStyle[@"navBarHidden"] = setHidden;
     [topViewController setNavBarVisibilityChange:animatedBool];
     
-    }
+  }
 }
 
 -(void)onButtonPress:(UIBarButtonItem*)barButtonItem
@@ -288,7 +283,7 @@ NSString const *CALLBACK_ASSOCIATED_ID = @"RCCNavigationController.CALLBACK_ASSO
     if (disableIconTint) {
       [barButtonItem setImage:[barButtonItem.image imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal]];
     }
-
+    
     NSString *testID = button[@"testID"];
     if (testID)
     {
@@ -307,22 +302,18 @@ NSString const *CALLBACK_ASSOCIATED_ID = @"RCCNavigationController.CALLBACK_ASSO
   }
 }
 
--(void)setTitleImageForVC:(UIViewController*)viewController titleImageData:(id)titleImageData
+-(void)processTitleView:(UIViewController*)viewController
+                  props:(NSDictionary*)props
+                  style:(NSDictionary*)style
 {
-  if (!titleImageData || [titleImageData isEqual:[NSNull null]])
-  {
-    viewController.navigationItem.titleView = nil;
-    return;
-  }
+  RCCTitleViewHelper *titleViewHelper = [[RCCTitleViewHelper alloc] init:viewController
+                                                    navigationController:self
+                                                                   title:props[@"title"]
+                                                                subtitle:props[@"subtitle"]
+                                                          titleImageData:props[@"titleImage"]];
   
-  UIImage *titleImage = [RCTConvert UIImage:titleImageData];
-  if (titleImage)
-  {
-    UIImageView *imageView = [[UIImageView alloc] initWithFrame: CGRectMake(0, 0, 200, 40)];
-    imageView.image = titleImage;
-    imageView.contentMode = UIViewContentModeScaleAspectFit;
-    viewController.navigationItem.titleView = imageView;
-  }
+  [titleViewHelper setup:style];
 }
+
 
 @end
