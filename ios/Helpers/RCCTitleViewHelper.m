@@ -59,8 +59,8 @@ navigationController:(UINavigationController*)navigationController
     self.titleView.clipsToBounds = YES;
     
     
-    self.viewController.title = self.title;
-    
+    self.viewController.navigationItem.title = self.title;
+        
     if ([self isTitleOnly]) {
         self.viewController.navigationItem.titleView = nil;
         return;
